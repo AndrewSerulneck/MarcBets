@@ -37,18 +37,17 @@
         .gradient-bg { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); min-height: 100vh; padding: 20px; }
         .container { max-width: 1000px; margin: 0 auto; }
         .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; margin-right: 8px; }
         .btn-primary { background: #007bff; color: white; }
         .btn-success { background: #28a745; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-danger { background: #dc3545; color: white; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { opacity: 0.9; }
         .game-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
         .team-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; cursor: pointer; margin-bottom: 8px; transition: all 0.2s; }
         .team-row.selected { background: #d4edda; border: 2px solid #28a745; }
         .team-row.disabled { opacity: 0.6; cursor: not-allowed; }
-        .team-row.won { background: #d4edda; border: 2px solid #28a745; }
-        .team-row.lost { background: #f8d7da; border: 2px solid #dc3545; }
         .team-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
         .team-name { font-weight: 600; font-size: 15px; }
         .team-spread { font-weight: 700; font-size: 18px; color: #007bff; white-space: nowrap; min-width: 50px; text-align: right; }
@@ -65,7 +64,6 @@
         .text-white { color: white; }
         .mb-2 { margin-bottom: 16px; }
         .mb-4 { margin-bottom: 32px; }
-        .hidden { display: none; }
         .payout-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
         @media (max-width: 768px) {
             .payout-grid { grid-template-columns: repeat(2, 1fr); }
@@ -82,6 +80,7 @@
     <div id="root"></div>
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
+        
         function App() {
             const [isAdmin, setIsAdmin] = useState(false);
             const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -233,6 +232,7 @@
                     
                     await set(ref(db, 'spreads'), spreadsData);
                     alert('Spreads saved to Firebase! All devices will update in real-time.');
+                    setIsSyncing(false);
                 } catch (error) {
                     console.error('Error saving to Firebase:', error);
                     alert('Error saving spreads. Check console for details.');
@@ -252,25 +252,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(submission)
                     });
-                    
-                    if (submission.contactInfo.confirmMethod === 'email') {
-                        sendEmailConfirmation(submission);
-                    } else {
-                        sendTextConfirmation(submission);
-                    }
                 } catch (error) {
                     console.error('Error sending to Google Sheets:', error);
                 }
-            };
-            
-            const sendEmailConfirmation = (submission) => {
-                console.log('Email confirmation would be sent to:', submission.contactInfo.email);
-                console.log('Ticket:', submission.ticketNumber);
-            };
-            
-            const sendTextConfirmation = (submission) => {
-                console.log('Text confirmation would be sent to:', submission.contactInfo.phone);
-                console.log('Ticket:', submission.ticketNumber);
             };
             
             const updateSubmissionFreePlay = (index, amount) => {
@@ -445,32 +429,11 @@
                                                 <div><strong>Name:</strong> {sub.contactInfo.name}</div>
                                                 <div><strong>Email:</strong> {sub.contactInfo.email}</div>
                                                 <div><strong>Phone:</strong> {sub.contactInfo.phone}</div>
-                                                <div><strong>Bet Amount:</strong> ${sub.betAmount.toFixed(2)}</div>
+                                                <div><strong>Bet:</strong> ${sub.betAmount.toFixed(2)}</div>
                                             </div>
                                             <div style={{marginBottom: '16px'}}>
                                                 <strong>Record: {result.wins}-{result.losses}</strong>
                                                 {result.pending > 0 && <span style={{color: '#666'}}> ({result.pending} pending)</span>}
-                                            </div>
-                                            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
-                                                <input
-                                                    type="number"
-                                                    placeholder="Free play amount"
-                                                    value={editingSubmission === actualIndex ? (sub.freePlay || 0) : ''}
-                                                    onChange={(e) => {
-                                                        setEditingSubmission(actualIndex);
-                                                        updateSubmissionFreePlay(actualIndex, parseFloat(e.target.value) || 0);
-                                                    }}
-                                                    style={{flex: 1, marginBottom: 0}}
-                                                />
-                                                <button
-                                                    className="btn btn-primary"
-                                                    onClick={() => {
-                                                        alert(`Free play of $${sub.freePlay || 0} saved`);
-                                                        setEditingSubmission(null);
-                                                    }}
-                                                >
-                                                    Save
-                                                </button>
                                             </div>
                                         </div>
                                     );
@@ -487,7 +450,7 @@
                         <div className="container">
                             <div className="card">
                                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px'}}>
-                                    <h1>Admin Panel<span className={`sync-indicator ${isSyncing ? 'syncing' : ''}`}></span></h1>
+                                    <h1>Admin Panel <span className={`sync-indicator ${isSyncing ? 'syncing' : ''}`}></span></h1>
                                     <div style={{display: 'flex', gap: '8px'}}>
                                         <button className="btn btn-primary" onClick={() => setShowSubmissions(true)}>
                                             Submissions ({submissions.length})
@@ -495,7 +458,6 @@
                                         <button className="btn btn-secondary" onClick={() => setIsAdmin(false)}>Exit</button>
                                     </div>
                                 </div>
-                                <button className="btn btn-primary" onClick={loadGames} style={{marginBottom: '12px'}}>Refresh from ESPN</button>
                             </div>
                             {games.map(game => (
                                 <div key={game.id} className="card">
@@ -518,7 +480,7 @@
                                 </div>
                             ))}
                             <div className="card">
-                                <button className="btn btn-success" onClick={saveSpreadToFirebase} disabled={isSyncing} style={{width: '100%', fontSize: '18px'}}>
+                                <button className="btn btn-success" onClick={saveSpreadToFirebase} disabled={isSyncing} style={{width: '100%', fontSize: '18px', padding: '16px'}}>
                                     {isSyncing ? 'Saving to Firebase...' : 'Save & Broadcast to All Devices'}
                                 </button>
                             </div>
@@ -778,3 +740,9 @@
                         </div>
                     </div>
                 </div>
+            );
+        }
+        
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
